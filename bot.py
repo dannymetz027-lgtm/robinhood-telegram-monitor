@@ -75,7 +75,11 @@ TWITTER_POLL_SECONDS = 10
 REQUEST_TIMEOUT = 20
 LOG_LOOKBACK_BLOCKS = int(os.environ.get("LOG_LOOKBACK_BLOCKS", "5"))
 
-WATCH_KEYWORDS = ("trump", "wlfi", "melania", "barron")
+WATCH_KEYWORDS = tuple(
+    k.strip().lower()
+    for k in os.environ.get("WATCH_KEYWORDS", "trump,www").split(",")
+    if k.strip()
+)
 
 # Quote tokens to ignore when picking the "new" token side of a pool
 QUOTE_TOKENS = {
@@ -245,6 +249,7 @@ def decode_v2_pair_created(log_entry: dict[str, Any]) -> dict[str, Any]:
 def decode_v3_pool_created(log_entry: dict[str, Any]) -> dict[str, Any]:
     token0 = topic_to_address(log_entry["topics"][1])
     token1 = topic_to_address(log_entry["topics"][2])
+    fee = int(log_entry["topics"][3], 16)
     data = bytes.fromhex(log_entry["data"][2:])
     _tick_spacing, pool = abi_decode(["int24", "address"], data)
     return {
@@ -252,6 +257,7 @@ def decode_v3_pool_created(log_entry: dict[str, Any]) -> dict[str, Any]:
         "pairAddress": pool,
         "token0": token0,
         "token1": token1,
+        "fee": fee,
         "blockNumber": int(log_entry["blockNumber"], 16),
         "txHash": log_entry["transactionHash"],
     }
@@ -305,7 +311,7 @@ def enrich_pool(pool: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def format_pool_alert(pair: dict[str, Any]) -> str:
+def format_pool_alert(pair: dict[str, Any], buy_result: dict[str, Any] | None = None) -> str:
     base = pair.get("baseToken") or {}
     name = base.get("name") or "Unknown"
     symbol = base.get("symbol") or "???"
@@ -345,6 +351,35 @@ def format_pool_alert(pair: dict[str, Any]) -> str:
     ]
     if explorer_tx:
         lines.append(f"🔗 [View create tx]({explorer_tx})")
+
+    if buy_result:
+        if buy_result.get("success") and buy_result.get("tx_hash"):
+            buy_tx = buy_result["tx_hash"]
+            lines.extend(
+                [
+                    "",
+                    "🤖 *AUTO\\-BUY TRIGGERED*",
+                    f"*Amount:* `{buy_result.get('amount_eth')} ETH`",
+                    f"*Buy tx:* [view](https://robinhoodchain.blockscout.com/tx/{buy_tx})",
+                ]
+            )
+        elif buy_result.get("attempted"):
+            lines.extend(
+                [
+                    "",
+                    "⚠️ *AUTO\\-BUY FAILED*",
+                    f"*Reason:* {escape_markdown(str(buy_result.get('reason') or 'unknown'))}",
+                ]
+            )
+        elif matches_watch_keywords(name, symbol):
+            lines.extend(
+                [
+                    "",
+                    "⏸️ *AUTO\\-BUY SKIPPED*",
+                    f"*Reason:* {escape_markdown(str(buy_result.get('reason') or 'not ready'))}",
+                ]
+            )
+
     return "\n".join(lines)
 
 
@@ -369,9 +404,7 @@ async def blockchain_tracker(bot: Bot) -> None:
                 await asyncio.sleep(BLOCKCHAIN_POLL_SECONDS)
                 continue
 
-            from_block = _last_scanned_block + 1
-            # Small overlap for reorg safety
-            from_block = max(from_block - LOG_LOOKBACK_BLOCKS, _last_scanned_block - LOG_LOOKBACK_BLOCKS + 1)
+            from_block = max(_last_scanned_block - LOG_LOOKBACK_BLOCKS + 1, 0)
             if from_block > latest:
                 await asyncio.sleep(BLOCKCHAIN_POLL_SECONDS)
                 continue
@@ -386,12 +419,23 @@ async def blockchain_tracker(bot: Bot) -> None:
                 seen_pools.add(pair_address.lower())
 
                 enriched = await asyncio.to_thread(enrich_pool, pool)
-                alert = format_pool_alert(enriched)
-                await send_telegram(bot, alert)
                 base = enriched.get("baseToken") or {}
+                buy_result = None
+                if matches_watch_keywords(base.get("name", ""), base.get("symbol", "")):
+                    from sniper import try_auto_buy
+
+                    buy_result = await asyncio.to_thread(try_auto_buy, enriched)
+
+                alert = format_pool_alert(enriched, buy_result)
+                await send_telegram(bot, alert)
                 log(
                     f"Alert sent for on-chain pool {pair_address} "
                     f"({base.get('symbol')}) block={pool['blockNumber']}"
+                    + (
+                        f" buy={buy_result.get('reason')}"
+                        if buy_result
+                        else ""
+                    )
                 )
         except Exception as exc:
             log(f"Blockchain tracker loop error: {exc}")
@@ -522,6 +566,14 @@ async def main() -> None:
         sys.exit(1)
 
     await warmup_seen_tweets()
+
+    try:
+        from sniper import sniper_status
+
+        log(f"Auto-buy sniper: {sniper_status()}")
+        log(f"Watch keywords: {', '.join(WATCH_KEYWORDS)}")
+    except Exception as exc:
+        log(f"Sniper status error: {exc}")
 
     await asyncio.gather(
         blockchain_tracker(bot),
