@@ -35,7 +35,12 @@ TELEGRAM_BOT_TOKEN = os.environ.get(
     "TELEGRAM_BOT_TOKEN",
     "8914376349:AAFzpCeJCGIJ6aKW6C2t4WUrBmNv8WGlVZk",
 )
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "7585957774")
+# Comma-separated chat IDs supported
+TELEGRAM_CHAT_IDS = [
+    cid.strip()
+    for cid in os.environ.get("TELEGRAM_CHAT_ID", "7585957774,8638097560").split(",")
+    if cid.strip()
+]
 
 # RSS.app feed URLs
 TRUMP_RSS_URL = os.environ.get(
@@ -118,17 +123,19 @@ def fetch_rss(url: str) -> feedparser.FeedParserDict:
 
 
 async def send_telegram(bot: Bot, message: str) -> None:
-    try:
-        await bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text=message,
-            parse_mode=ParseMode.MARKDOWN,
-            disable_web_page_preview=False,
-        )
-    except TelegramError as exc:
-        log(f"Telegram send failed: {exc}")
-    except Exception as exc:
-        log(f"Unexpected Telegram error: {exc}")
+    for chat_id in TELEGRAM_CHAT_IDS:
+        try:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=message,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=False,
+                disable_notification=False,
+            )
+        except TelegramError as exc:
+            log(f"Telegram send failed (chat {chat_id}): {exc}")
+        except Exception as exc:
+            log(f"Unexpected Telegram error (chat {chat_id}): {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +367,7 @@ async def main() -> None:
     if not TELEGRAM_BOT_TOKEN:
         log("ERROR: TELEGRAM_BOT_TOKEN is not set.")
         sys.exit(1)
-    if not TELEGRAM_CHAT_ID:
+    if not TELEGRAM_CHAT_IDS:
         log("ERROR: TELEGRAM_CHAT_ID is not set.")
         sys.exit(1)
 
