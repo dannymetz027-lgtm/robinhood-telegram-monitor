@@ -1,0 +1,18 @@
+# Render Blueprint — deploy as a Background Worker (no web port needed)
+# Docs: https://render.com/docs/background-workers
+services:
+  - type: worker
+    name: robinhood-telegram-monitor
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -u bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: TRUMP_RSS_URL
+        sync: false
+      - key: MELANIA_RSS_URL
+        sync: false
