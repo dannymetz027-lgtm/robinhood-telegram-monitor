@@ -212,12 +212,16 @@ def format_pool_alert(pair: dict[str, Any]) -> str:
 
     uniswap_url = uniswap_buy_url(token_address)
     maestro_url = maestro_buy_url(token_address)
+    dex_url = pair.get("url") or (
+        f"https://dexscreener.com/{DEXSCREENER_CHAIN_SLUG}/{pair.get('pairAddress') or token_address}"
+    )
 
     return (
         "🚨 *NEW TOKEN FOUND ON ROBINHOOD CHAIN\\!* 🚨\n\n"
         f"*Name:* {escape_markdown(name)} \\({escape_markdown(symbol)}\\){keyword_flag}\n"
         f"*Contract Address:* `{token_address}`\n"
         f"*Initial Price:* ${price}\n\n"
+        f"📊 [View on DexScreener]({dex_url})\n"
         f"🛒 [Click to Buy on Uniswap Web App]({uniswap_url})\n"
         f"⚡ [Instant Sniper Buy via Maestro Bot]({maestro_url})"
     )
