@@ -77,7 +77,7 @@ LOG_LOOKBACK_BLOCKS = int(os.environ.get("LOG_LOOKBACK_BLOCKS", "5"))
 
 WATCH_KEYWORDS = tuple(
     k.strip().lower()
-    for k in os.environ.get("WATCH_KEYWORDS", "trump,www").split(",")
+    for k in os.environ.get("WATCH_KEYWORDS", "trump,www,kai").split(",")
     if k.strip()
 )
 
