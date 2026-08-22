@@ -21,6 +21,10 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import feedparser
 import requests
 from eth_abi import decode as abi_decode

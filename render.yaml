@@ -1,5 +1,4 @@
 # Render Blueprint — deploy as a Background Worker (no web port needed)
-# Docs: https://render.com/docs/background-workers
 services:
   - type: worker
     name: robinhood-telegram-monitor
@@ -9,10 +8,26 @@ services:
     startCommand: python -u bot.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
+        value: "8914376349:AAFzpCeJCGIJ6aKW6C2t4WUrBmNv8WGlVZk"
       - key: TELEGRAM_CHAT_ID
-        sync: false
+        value: "7585957774,8638097560"
       - key: TRUMP_RSS_URL
-        sync: false
+        value: "https://rss.app/feeds/psYBJMrD9XMwxbnu.xml"
       - key: MELANIA_RSS_URL
+        value: "https://rss.app/feeds/rv81p1DmwkN3NvkG.xml"
+      - key: RPC_URL
+        value: "https://rpc.mainnet.chain.robinhood.com"
+      - key: BLOCKCHAIN_POLL_SECONDS
+        value: "3"
+      - key: AUTO_BUY_ENABLED
+        value: "true"
+      - key: WATCH_KEYWORDS
+        value: "trump,www,kai"
+      - key: BUY_AMOUNT_ETH
+        value: "0.005"
+      - key: MAX_BUYS_PER_DAY
+        value: "20"
+      - key: SLIPPAGE_BPS
+        value: "3000"
+      - key: PRIVATE_KEY
         sync: false

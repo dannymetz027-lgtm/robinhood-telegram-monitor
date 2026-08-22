@@ -7,6 +7,10 @@ import time
 from datetime import date
 from typing import Any
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from eth_abi import encode as abi_encode
 from eth_account import Account
 from eth_utils import keccak, to_checksum_address
